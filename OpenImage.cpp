@@ -5,6 +5,10 @@
 #include <gdiplus.h>
 #include <commctrl.h>
 #include <string>
+#include <codecvt>
+
+#include <vector>
+#include <iostream>
 
 #include "framework.h"
 #include "OpenImage.h"
@@ -27,6 +31,8 @@ const int defaultWidth = 960;
 const int defaultHeight = 540;
 WCHAR szTitle[MAX_LOADSTRING];
 WCHAR szWindowClass[MAX_LOADSTRING];
+
+HWND hEdit;
 
 // Function Prototypes
 ATOM RegisterAppClass(HINSTANCE hInstance);
@@ -63,6 +69,175 @@ void DrawImageInBoxWithZoom(HDC hdc, int boxX, int boxY, int boxWidth, int boxHe
     // Draw the image with scaling
     graphics.DrawImage(&image, Rect(offsetX, offsetY, scaledWidth, scaledHeight));
 }
+
+bool EncodeMessageInImage(const std::wstring& imagePath, const std::string& message, Bitmap*& outputImage) {
+    // Load the image
+    Bitmap* image = new Bitmap(imagePath.c_str());
+    if (image->GetLastStatus() != Ok) {
+        std::wcerr << L"Failed to load image.\n";
+        delete image;
+        return false;
+    }
+
+    // Prepare the message to encode
+    std::vector<uint8_t> data(message.begin(), message.end());
+    data.push_back('\0'); // Null-terminate the message
+
+    UINT width = image->GetWidth();
+    UINT height = image->GetHeight();
+    size_t dataIdx = 0;
+    size_t bitCount = 0;
+
+    // Encode message into the blue channel
+    for (UINT y = 0; y < height; ++y) {
+        for (UINT x = 0; x < width; ++x) {
+            if (dataIdx < data.size()) {
+                Color pixel;
+                image->GetPixel(x, y, &pixel);
+
+                // Get the current bit from the message
+                uint8_t bit = (data[dataIdx] >> (7 - bitCount)) & 1;
+
+                // Modify the least significant bit of the blue channel
+                BYTE newBlue = (pixel.GetBlue() & 0xFE) | bit;
+                Color newPixel(pixel.GetA(), pixel.GetR(), pixel.GetG(), newBlue);
+                image->SetPixel(x, y, newPixel);
+
+                // Move to the next bit of the message
+                bitCount++;
+                if (bitCount == 8) {
+                    bitCount = 0;
+                    dataIdx++;
+                }
+            }
+            else {
+                // If all message data is encoded, break the loop
+                break;
+            }
+        }
+    }
+
+    outputImage = image;
+    return true;
+}
+
+int GetEncoderClsid(const WCHAR* format, CLSID& clsid) {
+    UINT num = 0;
+    UINT size = 0;
+
+    // Get the number of image encoders
+    ImageCodecInfo* imageCodecInfo = NULL;
+
+    GetImageEncodersSize(&num, &size);
+    if (size == 0)
+        return -1;
+
+    imageCodecInfo = (ImageCodecInfo*)(malloc(size));
+    if (imageCodecInfo == NULL)
+        return -1;
+
+    // Get the available encoders
+    GetImageEncoders(num, size, imageCodecInfo);
+
+    for (UINT j = 0; j < num; ++j) {
+        // Compare the format string to the MimeType
+        if (wcscmp(imageCodecInfo[j].MimeType, format) == 0) {
+            clsid = imageCodecInfo[j].Clsid;
+            free(imageCodecInfo);
+            return j;  // Success
+        }
+    }
+
+    free(imageCodecInfo);
+    return -1;  // Failure
+}
+
+// Function to save the image
+bool SaveImage(Bitmap* image, const std::wstring& outputPath) {
+    // Check if the path is valid
+    if (outputPath.empty()) {
+        //std::wcerr << L"Output path is empty.\n";
+        return false;
+    }
+
+    // Attempt to save the image in the best format (PNG or JPEG)
+    CLSID encoderClsid;
+    if (GetEncoderClsid(L"image/png", encoderClsid) == -1 && GetEncoderClsid(L"image/jpeg", encoderClsid) == -1) {
+        //std::wcerr << L"Failed to get encoder CLSID.\n";
+        return false;
+    }
+
+    // Attempt to save the image to disk
+    if (image->Save(outputPath.c_str(), &encoderClsid, nullptr) != Ok) {
+        //std::wcerr << L"Failed to save the image at " << outputPath << L"\n";
+        return false;
+    }
+
+    return true;
+}
+
+wstring stringToWString(const std::string& str) {
+    std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
+    return converter.from_bytes(str);
+}
+
+string wcharToString(const wchar_t* wcharBuffer) {
+    // Use a wstring_convert to convert the wchar_t buffer to a UTF-8 string
+    std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
+    std::string utf8String = converter.to_bytes(wcharBuffer);
+    return utf8String;
+}
+
+wstring DecodeMessageFromImage(const std::wstring& imagePath) {
+    // Load the image
+    Bitmap image(imagePath.c_str());
+    if (image.GetLastStatus() != Ok) {
+        std::wcerr << L"Failed to load image.\n";
+        return L"";
+    }
+
+    // Prepare to read the LSBs
+    UINT width = image.GetWidth();
+    UINT height = image.GetHeight();
+
+    std::vector<uint8_t> messageData;
+    uint8_t currentByte = 0;
+    size_t bitCount = 0;
+
+    // Read each pixel and extract the LSB from the blue channel
+    for (UINT y = 0; y < height; ++y) {
+        for (UINT x = 0; x < width; ++x) {
+            Color pixel;
+            image.GetPixel(x, y, &pixel);
+
+            // Extract the least significant bit of the blue channel
+            uint8_t lsb = pixel.GetBlue() & 0x01;
+
+            // Add the bit to the current byte
+            currentByte |= (lsb << (7 - bitCount));
+            bitCount++;
+
+            // Once we have 8 bits (1 byte), store it in the messageData vector
+            if (bitCount == 8) {
+                messageData.push_back(currentByte);
+                currentByte = 0;
+                bitCount = 0;
+            }
+        }
+    }
+
+    // Convert the message data into a string
+    std::string decodedMessage(messageData.begin(), messageData.end());
+
+    // Find and remove the null-terminator (if any)
+    size_t nullPos = decodedMessage.find('\0');
+    if (nullPos != std::string::npos) {
+        decodedMessage = decodedMessage.substr(0, nullPos);
+    }
+
+    return stringToWString(decodedMessage);
+}
+
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE, _In_ LPWSTR, _In_ int nCmdShow) {
     GdiplusStartupInput gdiplusStartupInput;
@@ -147,6 +322,30 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
             }
             return 0;
         }
+        case ID_BUTTON: {
+            wchar_t buffer[256]; // Allocate a buffer to store the text
+            GetWindowText(hEdit, buffer, sizeof(buffer)); // Get the text from the Edit control
+
+            Bitmap* encodedImage = nullptr;
+            if (EncodeMessageInImage(current_path, wcharToString(buffer), encodedImage)) {
+                if (SaveImage(encodedImage, L"C:/Users/AMD/Downloads/encoded.png")) {
+                    MessageBox(hWnd, L"Saved succesfuly !", L"Notif Encrypt", MB_OK);
+                }
+                delete encodedImage;
+            }
+
+            return 0;
+        }
+        case ID_EDIT: {
+            // SOMETHING WHILE I ENTER STUFF IN THE EDIT BOX
+            return 0;
+        }
+        case ID_WBUTTON2: {
+            wstring message = DecodeMessageFromImage(current_path).c_str();
+            MessageBox(hWnd, message.c_str(), L"Notif Decrypt", MB_OK);
+            return 0;
+        }
+
         default: {
             return DefWindowProc(hWnd, message, wParam, lParam);
         }
@@ -164,6 +363,43 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
         // Configure slider range and initial position
         SendMessage(hSlider, TBM_SETRANGE, TRUE, MAKELPARAM(1, 100)); // Range: 1 to 100
         SendMessage(hSlider, TBM_SETPOS, TRUE, 50);                   // Initial position: 50
+
+        CreateWindow(
+            L"BUTTON",              // Predefined class for buttons
+            L"Encrypt",            // Button text
+            WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,  // Styles
+            550, 50, 100, 30,       // x, y, width, height
+            hWnd,                  // Parent window handle
+            (HMENU)ID_BUTTON,      // Button identifier
+            (HINSTANCE)GetWindowLongPtr(hWnd, GWLP_HINSTANCE),
+            NULL                   // Pointer to additional data
+        );
+
+        CreateWindow(
+            L"BUTTON",              // Predefined class for buttons
+            L"Decrypt",            // Button text
+            WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,  // Styles
+            550, 100, 100, 30,       // x, y, width, height
+            hWnd,                  // Parent window handle
+            (HMENU)ID_WBUTTON2,      // Button identifier
+            (HINSTANCE)GetWindowLongPtr(hWnd, GWLP_HINSTANCE),
+            NULL                   // Pointer to additional data
+        );
+
+        hEdit = CreateWindowEx(
+            WS_EX_CLIENTEDGE,  // Style: adding a border effect
+            L"EDIT",            // Class name for the edit control
+            L"type something here",                // Initial text in the edit control
+            WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL, // Styles (visible, child, etc.)
+            10, 10,            // Position (x, y)
+            200, 25,           // Size (width, height)
+            hWnd,              // Parent window
+            (HMENU)ID_EDIT,          // Control ID
+            (HINSTANCE)GetWindowLong(hWnd, GWLP_HINSTANCE),
+            NULL
+        );             // Additional creation data
+
+
         return 0;
     }
     case WM_SIZE: {
