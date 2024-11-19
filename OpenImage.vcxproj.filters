@@ -39,10 +39,10 @@
     </ResourceCompile>
   </ItemGroup>
   <ItemGroup>
-    <Image Include="small.ico">
+    <Image Include="OpenImage_Logo_x32.ico">
       <Filter>Fichiers de ressources</Filter>
     </Image>
-    <Image Include="OpenImage.ico">
+    <Image Include="OpenImage_Logo_x64.ico">
       <Filter>Fichiers de ressources</Filter>
     </Image>
   </ItemGroup>

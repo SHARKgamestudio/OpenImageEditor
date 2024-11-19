@@ -139,8 +139,8 @@
     <ResourceCompile Include="OpenImage.rc" />
   </ItemGroup>
   <ItemGroup>
-    <Image Include="OpenImage.ico" />
-    <Image Include="small.ico" />
+    <Image Include="OpenImage_Logo_x32.ico" />
+    <Image Include="OpenImage_Logo_x64.ico" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
