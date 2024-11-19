@@ -1,15 +1,39 @@
 // OpenImage.cpp : Définit le point d'entrée de l'application.
 //
 
+#include <Windows.h>
+#include <objidl.h>
+#include <gdiplus.h>
+#include <string>
+#include <iostream>
+
 #include "framework.h"
 #include "OpenImage.h"
 
 #define MAX_LOADSTRING 100
 
+using namespace Gdiplus;
+using namespace std;
+
+#pragma comment (lib,"Gdiplus.lib")
+
+wstring current_path;
+
+VOID OnPaint(HDC hdc)
+{
+    Graphics graphics(hdc);
+    Image image(current_path.c_str());
+    Pen pen(Color(255, 0, 0, 0));
+    graphics.DrawRectangle(&pen, Rect(0, 0, 800, 400));
+    graphics.DrawImage(&image, Rect(0, 0, 800, 400));
+
+}
+
 // Variables globales :
 HINSTANCE hInst;                                // instance actuelle
 WCHAR szTitle[MAX_LOADSTRING];                  // Texte de la barre de titre
 WCHAR szWindowClass[MAX_LOADSTRING];            // nom de la classe de fenêtre principale
+
 
 // Déclarations anticipées des fonctions incluses dans ce module de code :
 ATOM                MyRegisterClass(HINSTANCE hInstance);
@@ -24,6 +48,11 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 {
     UNREFERENCED_PARAMETER(hPrevInstance);
     UNREFERENCED_PARAMETER(lpCmdLine);
+
+    GdiplusStartupInput gdiplusStartupInput;
+    ULONG_PTR           gdiplusToken;
+
+    GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, NULL);
 
     // TODO: Placez le code ici.
 
@@ -52,10 +81,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
         }
     }
 
+    GdiplusShutdown(gdiplusToken);
     return (int) msg.wParam;
 }
-
-
 
 //
 //  FONCTION : MyRegisterClass()
@@ -95,16 +123,23 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
 //
 BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 {
-
    hInst = hInstance; // Stocke le handle d'instance dans la variable globale
 
-   HWND hWnd = CreateWindowW(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW,
-      CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, nullptr, nullptr, hInstance, nullptr);
+   HWND hWnd = CreateWindowW(szWindowClass, szTitle, (WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX),
+      0, 0, 800, 600, nullptr, nullptr, hInstance, nullptr);
 
    if (!hWnd)
    {
       return FALSE;
    }
+
+   //CreateWindow(TEXT("button"), TEXT("Beep"),
+   //    WS_VISIBLE | WS_CHILD,
+   //    20, 50, 80, 25,
+   //    hWnd, (HMENU)1, NULL, NULL);
+
+   HWND trackbarHWND = CreateWindowW(TEXT("Trackbar"), L"Trackbar",
+       WS_OVERLAPPEDWINDOW | WS_VISIBLE, 100, 100, 350, 180, 0, 0, hInstance, 0);
 
    ShowWindow(hWnd, nCmdShow);
    UpdateWindow(hWnd);
@@ -132,12 +167,45 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             // Analyse les sélections de menu :
             switch (wmId)
             {
-            case IDM_ABOUT:
+            case ID_MORE_ABOUT:
                 DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
                 break;
-            case IDM_EXIT:
+            case IDM_FILES_EXIT:
                 DestroyWindow(hWnd);
                 break;
+            case IDM_FILES_OPEN:
+            {
+                wstring path(MAX_PATH, '\0');   // buffer for file name MAX_PATH = 260
+                OPENFILENAME ofn = { sizeof(OPENFILENAME) };  // common dialog box structure
+
+                // Initialize OPENFILENAME
+                ZeroMemory(&ofn, sizeof(ofn));
+                ofn.lStructSize = sizeof(ofn);
+                ofn.hwndOwner = hWnd;
+                ofn.lpstrFile = &path[0];
+                ofn.nMaxFile = MAX_PATH;
+                ofn.lpstrFilter = TEXT("All Images\0*.BMP;*.JPG;*.JPEG;*.PNG;*.GIF;*.TIFF\0JPEG Files\0*.JPG;*.JPEG\0PNG Files\0*.PNG\0GIF Files\0*.GIF\0BMP Files\0*.BMP\0TIFF Files\0*.TIFF\0All Files\0*.*\0");
+                ofn.nFilterIndex = 1;
+                ofn.lpstrFileTitle = NULL;
+                ofn.nMaxFileTitle = 0;
+                ofn.lpstrInitialDir = NULL;
+                ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST | OFN_NOCHANGEDIR;
+
+                if (GetOpenFileName(&ofn))
+                {
+                    // Get the actual string size, excluding the null-terminator.
+                    size_t actualLength = wcslen(path.c_str());
+
+                    // Resize the wstring to the correct size (length of the path, excluding null terminator)
+                    path.resize(actualLength);
+                }
+
+                current_path = path;
+
+                RedrawWindow(hWnd, NULL, NULL, RDW_INVALIDATE);
+
+                break;
+            }
             default:
                 return DefWindowProc(hWnd, message, wParam, lParam);
             }
@@ -147,7 +215,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         {
             PAINTSTRUCT ps;
             HDC hdc = BeginPaint(hWnd, &ps);
-            // TODO: Ajoutez ici le code de dessin qui utilise hdc...
+
+            OnPaint(hdc);
+
             EndPaint(hWnd, &ps);
         }
         break;
