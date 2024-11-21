@@ -5,6 +5,7 @@
 #define ID_BUTTON                       1
 #define IDC_MYICON                      2
 #define ID_EDIT                         3
+#define ID_DECODE_EDIT			        4
 #define ID_WBUTTON2                     6456
 #define IDD_OPENIMAGE_DIALOG            102
 #define IDS_APP_TITLE                   103

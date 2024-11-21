@@ -1,5 +1,3 @@
-// OpenImage.cpp : Defines the entry point for the application.
-
 #include <Windows.h>
 #include <objidl.h>
 #include <gdiplus.h>
@@ -12,6 +10,8 @@
 
 #include "framework.h"
 #include "OpenImage.h"
+
+
 
 #define MAX_LOADSTRING 100
 
@@ -27,14 +27,17 @@ wstring current_path;
 HINSTANCE hInst;
 
 HWND hSlider;
-HWND hEncode;
+
+HWND hEncodeButton;
 HWND hEncodeEdit;
+
+HWND hDecodeButton;
 HWND hDecodeEdit;
-HWND hDecode;
 
 float zoomFactor = 1.0f;
 const int defaultWidth = 960;
 const int defaultHeight = 540;
+
 WCHAR szTitle[MAX_LOADSTRING];
 WCHAR szWindowClass[MAX_LOADSTRING];
 
@@ -44,7 +47,6 @@ BOOL InitializeApp(HINSTANCE hInstance, int nCmdShow);
 LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 INT_PTR CALLBACK AboutDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
 
-// Helper: Handle painting the window
 void DrawImageInBoxWithZoom(HDC hdc, int boxX, int boxY, int boxWidth, int boxHeight, float zoom) {
     Graphics graphics(hdc);
 
@@ -156,7 +158,6 @@ int GetEncoderClsid(const WCHAR* format, CLSID& clsid) {
     return -1;  // Failure
 }
 
-// Function to save the image
 bool SaveImage(Bitmap* image, const std::wstring& outputPath) {
     // Check if the path is valid
     if (outputPath.empty()) {
@@ -242,7 +243,6 @@ wstring DecodeMessageFromImage(const std::wstring& imagePath) {
     return stringToWString(decodedMessage);
 }
 
-
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE, _In_ LPWSTR, _In_ int nCmdShow) {
     GdiplusStartupInput gdiplusStartupInput;
     ULONG_PTR gdiplusToken;
@@ -315,7 +315,7 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
             ofn.hwndOwner = hWnd;
             ofn.lpstrFile = &path[0];
             ofn.nMaxFile = MAX_PATH;
-            ofn.lpstrFilter = TEXT("All Images\0*.BMP;*.JPG;*.PNG;*.GIF;*.TIFF\0All Files\0*.*\0");
+			ofn.lpstrFilter = TEXT("PNG Files\0*.PNG\0JPEG Files\0*.JPG\0");
             ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST;
 
             if (GetOpenFileName(&ofn)) {
@@ -324,15 +324,56 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
                 RedrawWindow(hWnd, nullptr, nullptr, RDW_INVALIDATE);
                 InvalidateRect(hWnd, NULL, TRUE);
             }
+
+            EnableWindow(hEncodeEdit, TRUE);
+
+            EnableWindow(hEncodeButton, TRUE);
+            EnableWindow(hDecodeButton, TRUE);
+
+            EnableWindow(hSlider, TRUE);
+
+            SetWindowText(hEncodeEdit, L"type something to encrypt.");
+            SetWindowText(hDecodeEdit, L"");
+
             return 0;
         }
         case ID_BUTTON: {
             wchar_t buffer[256]; // Allocate a buffer to store the text
             GetWindowText(hEncodeEdit, buffer, sizeof(buffer)); // Get the text from the Edit control
 
+
+
+
+
+            // Structure to hold the file dialog information
+            OPENFILENAME ofn;
+            WCHAR szFile[MAX_PATH] = { 0 };
+
+            // Initialize the OPENFILENAME structure
+            ZeroMemory(&ofn, sizeof(ofn));
+            ofn.lStructSize = sizeof(ofn);
+            ofn.hwndOwner = NULL; // Handle to the owner window
+            ofn.lpstrFile = szFile;
+            ofn.nMaxFile = sizeof(szFile);
+            ofn.lpstrFilter = L"PNG Files\0*.png\0All Files\0*.*\0";
+            ofn.nFilterIndex = 1;
+            ofn.lpstrFileTitle = NULL;
+            ofn.nMaxFileTitle = 0;
+            ofn.lpstrInitialDir = NULL;
+            ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST | OFN_OVERWRITEPROMPT;
+
+            wstring abdel;
+            if (GetSaveFileName(&ofn) == TRUE) {
+                abdel = ofn.lpstrFile;
+                if (wcharToString(ofn.lpstrFile).find(".png")) {
+					abdel += L".png";
+				}
+                MessageBox(hWnd, abdel.c_str(), L"Notif Encrypt", MB_OK);
+            }
+
             Bitmap* encodedImage = nullptr;
             if (EncodeMessageInImage(current_path, wcharToString(buffer), encodedImage)) {
-                if (SaveImage(encodedImage, L"C:/Users/AMD/Downloads/encoded.png")) {
+                if (SaveImage(encodedImage, abdel)) {
                     MessageBox(hWnd, L"Saved succesfuly !", L"Notif Encrypt", MB_OK);
                 }
                 delete encodedImage;
@@ -346,7 +387,7 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
         }
         case ID_WBUTTON2: {
             wstring message = DecodeMessageFromImage(current_path).c_str();
-            MessageBox(hWnd, message.c_str(), L"Notif Decrypt", MB_OK);
+			SetWindowText(hDecodeEdit, message.c_str());
             return 0;
         }
 
@@ -368,7 +409,7 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
         SendMessage(hSlider, TBM_SETRANGE, TRUE, MAKELPARAM(1, 100)); // Range: 1 to 100
         SendMessage(hSlider, TBM_SETPOS, TRUE, 50);                   // Initial position: 50
 
-        hEncode = CreateWindow(
+        hEncodeButton = CreateWindow(
             L"BUTTON",              // Predefined class for buttons
             L"Encrypt",            // Button text
             WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,  // Styles
@@ -379,7 +420,7 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
             NULL                   // Pointer to additional data
         );
 
-        hDecode = CreateWindow(
+        hDecodeButton = CreateWindow(
             L"BUTTON",              // Predefined class for buttons
             L"Decrypt",            // Button text
             WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,  // Styles
@@ -393,7 +434,7 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
         hEncodeEdit = CreateWindowEx(
             WS_EX_CLIENTEDGE,  // Style: adding a border effect
             L"EDIT",            // Class name for the edit control
-            L"type something here",                // Initial text in the edit control
+            L"please open an image first.",                // Initial text in the edit control
             WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL, // Styles (visible, child, etc.)
             10, 10,            // Position (x, y)
             200, 25,           // Size (width, height)
@@ -406,16 +447,21 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
         hDecodeEdit = CreateWindowEx(
             WS_EX_CLIENTEDGE,  // Style: adding a border effect
             L"EDIT",            // Class name for the edit control
-            L"type bruh here",                // Initial text in the edit control
+            L"please open an image first.",                // Initial text in the edit control
             WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL, // Styles (visible, child, etc.)
             10, 10,            // Position (x, y)
             200, 25,           // Size (width, height)
             hWnd,              // Parent window
-            (HMENU)ID_EDIT,          // Control ID
+            (HMENU)ID_DECODE_EDIT,          // Control ID
             (HINSTANCE)GetWindowLong(hWnd, GWLP_HINSTANCE),
             NULL
         );             // Additional creation data
 
+        EnableWindow(hEncodeEdit, FALSE);
+        EnableWindow(hDecodeEdit, FALSE);
+        EnableWindow(hEncodeButton, FALSE);
+        EnableWindow(hDecodeButton, FALSE);
+        EnableWindow(hSlider, FALSE);
 
         return 0;
     }
@@ -475,8 +521,8 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
         SetWindowPos(hEncodeEdit, NULL, editX, editY, editWidth, editHeight, SWP_NOZORDER);
         SetWindowPos(hDecodeEdit, NULL, editDecodeX, editDecodeY, editDecodeWidth, editDecodeHeight, SWP_NOZORDER);
 
-        SetWindowPos(hEncode, NULL, encodeX, encodeY, encodeWidth, encodeHeight, SWP_NOZORDER);
-        SetWindowPos(hDecode, NULL, decodeX, decodeY, decodeWidth, decodeHeight, SWP_NOZORDER);
+        SetWindowPos(hEncodeButton, NULL, encodeX, encodeY, encodeWidth, encodeHeight, SWP_NOZORDER);
+        SetWindowPos(hDecodeButton, NULL, decodeX, decodeY, decodeWidth, decodeHeight, SWP_NOZORDER);
         InvalidateRect(hWnd, NULL, TRUE); // Trigger redraw
         return 0;
     }
@@ -491,6 +537,7 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
         return 0;
     }
     case WM_PAINT: {
+
         PAINTSTRUCT ps;
         HDC hdc = BeginPaint(hWnd, &ps);
 
