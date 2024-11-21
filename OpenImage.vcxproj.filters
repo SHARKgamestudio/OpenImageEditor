@@ -42,6 +42,9 @@
     <ClInclude Include="LSB.h">
       <Filter>Fichiers d%27en-tête\Utils</Filter>
     </ClInclude>
+    <ClInclude Include="BitmapSaver.h">
+      <Filter>Fichiers d%27en-tête\Utils</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="OpenImage.cpp">
@@ -51,6 +54,9 @@
       <Filter>Fichiers sources\Utils</Filter>
     </ClCompile>
     <ClCompile Include="LSB.cpp">
+      <Filter>Fichiers sources\Utils</Filter>
+    </ClCompile>
+    <ClCompile Include="BitmapSaver.cpp">
       <Filter>Fichiers sources\Utils</Filter>
     </ClCompile>
   </ItemGroup>

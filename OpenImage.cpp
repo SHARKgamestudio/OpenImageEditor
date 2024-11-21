@@ -77,60 +77,6 @@ void DrawImageInBoxWithZoom(HDC hdc, int boxX, int boxY, int boxWidth, int boxHe
     graphics.DrawImage(&image, Rect(offsetX, offsetY, scaledWidth, scaledHeight));
 }
 
-int GetEncoderClsid(const WCHAR* format, CLSID& clsid) {
-    UINT num = 0;
-    UINT size = 0;
-
-    // Get the number of image encoders
-    ImageCodecInfo* imageCodecInfo = NULL;
-
-    GetImageEncodersSize(&num, &size);
-    if (size == 0)
-        return -1;
-
-    imageCodecInfo = (ImageCodecInfo*)(malloc(size));
-    if (imageCodecInfo == NULL)
-        return -1;
-
-    // Get the available encoders
-    GetImageEncoders(num, size, imageCodecInfo);
-
-    for (UINT j = 0; j < num; ++j) {
-        // Compare the format string to the MimeType
-        if (wcscmp(imageCodecInfo[j].MimeType, format) == 0) {
-            clsid = imageCodecInfo[j].Clsid;
-            free(imageCodecInfo);
-            return j;  // Success
-        }
-    }
-
-    free(imageCodecInfo);
-    return -1;  // Failure
-}
-
-bool SaveImage(Bitmap* image, const std::wstring& outputPath) {
-    // Check if the path is valid
-    if (outputPath.empty()) {
-        //std::wcerr << L"Output path is empty.\n";
-        return false;
-    }
-
-    // Attempt to save the image in the best format (PNG or JPEG)
-    CLSID encoderClsid;
-    if (GetEncoderClsid(L"image/png", encoderClsid) == -1 && GetEncoderClsid(L"image/jpeg", encoderClsid) == -1) {
-        //std::wcerr << L"Failed to get encoder CLSID.\n";
-        return false;
-    }
-
-    // Attempt to save the image to disk
-    if (image->Save(outputPath.c_str(), &encoderClsid, nullptr) != Ok) {
-        //std::wcerr << L"Failed to save the image at " << outputPath << L"\n";
-        return false;
-    }
-
-    return true;
-}
-
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE, _In_ LPWSTR, _In_ int nCmdShow) {
     GdiplusStartupInput gdiplusStartupInput;
     ULONG_PTR gdiplusToken;

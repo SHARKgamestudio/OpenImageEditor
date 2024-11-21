@@ -127,6 +127,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="BitmapSaver.h" />
     <ClInclude Include="FileExplorer.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="LSB.h" />
@@ -135,6 +136,7 @@
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="BitmapSaver.cpp" />
     <ClCompile Include="FileExplorer.cpp" />
     <ClCompile Include="LSB.cpp" />
     <ClCompile Include="OpenImage.cpp" />
