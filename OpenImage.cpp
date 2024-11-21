@@ -1,22 +1,30 @@
-#include <Windows.h>
-#include <objidl.h>
-#include <gdiplus.h>
-#include <commctrl.h>
-#include <string>
-#include <codecvt>
+
+#pragma region External Dependencies
 
 #include <vector>
+#include <string>
+#include <codecvt>
 #include <iostream>
+#include <objidl.h>
+#include <Windows.h>
+#include <gdiplus.h>
+#include <commctrl.h>
+
+#pragma endregion
+
+#pragma region Local Dependencies
 
 #include "framework.h"
 #include "OpenImage.h"
 
-
+#pragma endregion
 
 #define MAX_LOADSTRING 64
 
 #define DEFAULT_WIDTH  960
 #define DEFAULT_HEIGHT 540
+
+#pragma region Macro
 
 #pragma comment(lib, "Gdiplus.lib")
 #pragma comment(lib, "Comctl32.lib")
@@ -24,9 +32,14 @@
 name='Microsoft.Windows.Common-Controls' version='6.0.0.0' \
 processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
 
+#pragma endregion
+
+#pragma region Namespaces
+
 using namespace Gdiplus;
 using namespace std;
 
+#pragma endregion
 
 // Global Variables
 HINSTANCE hInst;
@@ -51,29 +64,22 @@ INT_PTR CALLBACK AboutDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM 
 void DrawImageInBoxWithZoom(HDC hdc, int boxX, int boxY, int boxWidth, int boxHeight, float zoom) {
     Graphics graphics(hdc);
 
-    // Load the image
     Image image(current_path.c_str());
 
-    // Get the original dimensions of the image
     UINT imgWidth = image.GetWidth();
     UINT imgHeight = image.GetHeight();
 
-    // Calculate scaled dimensions
     int scaledWidth = static_cast<int>(imgWidth * zoom);
     int scaledHeight = static_cast<int>(imgHeight * zoom);
 
-    // Calculate offsets to center the image within the box
     int offsetX = boxX - (scaledWidth - boxWidth) / 2;
     int offsetY = boxY - (scaledHeight - boxHeight) / 2;
 
-    // Create a clipping region to mask the image
     Region clipRegion(Rect(boxX, boxY, boxWidth, boxHeight));
     graphics.SetClip(&clipRegion);
 
-    // Draw the rectangle
     Rectangle(hdc, boxX, boxY, boxX + boxWidth, boxY + boxHeight);
 
-    // Draw the image with scaling
     graphics.DrawImage(&image, Rect(offsetX, offsetY, scaledWidth, scaledHeight));
 }
 
@@ -159,7 +165,7 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
 
             return 0;
         }
-        case ID_BUTTON: {
+        case ID_ENCODE_BUTTON: {
             wchar_t buffer[256];
             GetWindowText(hEncodeEdit, buffer, sizeof(buffer));
 
@@ -174,12 +180,11 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
 
             return 0;
         }
-        case ID_WBUTTON2: {
+        case ID_DECODE_BUTTON: {
             wstring message = DecodeMessage(current_path).c_str();
 			SetWindowText(hDecodeEdit, message.c_str());
             return 0;
         }
-
         default: {
             return DefWindowProc(hWnd, message, wParam, lParam);
         }
@@ -204,7 +209,7 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
             WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,  // Styles
             550, 50, 100, 30,       // x, y, width, height
             hWnd,                  // Parent window handle
-            (HMENU)ID_BUTTON,      // Button identifier
+            (HMENU)ID_ENCODE_BUTTON,      // Button identifier
             (HINSTANCE)GetWindowLongPtr(hWnd, GWLP_HINSTANCE),
             NULL                   // Pointer to additional data
         );
@@ -221,7 +226,7 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
             WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,  // Styles
             550, 100, 100, 30,       // x, y, width, height
             hWnd,                  // Parent window handle
-            (HMENU)ID_WBUTTON2,      // Button identifier
+            (HMENU)ID_DECODE_BUTTON,      // Button identifier
             (HINSTANCE)GetWindowLongPtr(hWnd, GWLP_HINSTANCE),
             NULL                   // Pointer to additional data
         );
@@ -279,7 +284,6 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
         return 0;
     }
     case WM_SIZE: {
-        // Get window dimensions
         RECT clientRect;
         GetClientRect(hWnd, &clientRect);
         int windowWidth = clientRect.right - clientRect.left;
