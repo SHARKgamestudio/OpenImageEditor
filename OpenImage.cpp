@@ -25,14 +25,18 @@ wstring current_path;
 
 // Global Variables
 HINSTANCE hInst;
+
 HWND hSlider;
+HWND hEncode;
+HWND hEncodeEdit;
+HWND hDecodeEdit;
+HWND hDecode;
+
 float zoomFactor = 1.0f;
 const int defaultWidth = 960;
 const int defaultHeight = 540;
 WCHAR szTitle[MAX_LOADSTRING];
 WCHAR szWindowClass[MAX_LOADSTRING];
-
-HWND hEdit;
 
 // Function Prototypes
 ATOM RegisterAppClass(HINSTANCE hInstance);
@@ -324,7 +328,7 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
         }
         case ID_BUTTON: {
             wchar_t buffer[256]; // Allocate a buffer to store the text
-            GetWindowText(hEdit, buffer, sizeof(buffer)); // Get the text from the Edit control
+            GetWindowText(hEncodeEdit, buffer, sizeof(buffer)); // Get the text from the Edit control
 
             Bitmap* encodedImage = nullptr;
             if (EncodeMessageInImage(current_path, wcharToString(buffer), encodedImage)) {
@@ -364,7 +368,7 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
         SendMessage(hSlider, TBM_SETRANGE, TRUE, MAKELPARAM(1, 100)); // Range: 1 to 100
         SendMessage(hSlider, TBM_SETPOS, TRUE, 50);                   // Initial position: 50
 
-        CreateWindow(
+        hEncode = CreateWindow(
             L"BUTTON",              // Predefined class for buttons
             L"Encrypt",            // Button text
             WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,  // Styles
@@ -375,7 +379,7 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
             NULL                   // Pointer to additional data
         );
 
-        CreateWindow(
+        hDecode = CreateWindow(
             L"BUTTON",              // Predefined class for buttons
             L"Decrypt",            // Button text
             WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,  // Styles
@@ -386,10 +390,23 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
             NULL                   // Pointer to additional data
         );
 
-        hEdit = CreateWindowEx(
+        hEncodeEdit = CreateWindowEx(
             WS_EX_CLIENTEDGE,  // Style: adding a border effect
             L"EDIT",            // Class name for the edit control
             L"type something here",                // Initial text in the edit control
+            WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL, // Styles (visible, child, etc.)
+            10, 10,            // Position (x, y)
+            200, 25,           // Size (width, height)
+            hWnd,              // Parent window
+            (HMENU)ID_EDIT,          // Control ID
+            (HINSTANCE)GetWindowLong(hWnd, GWLP_HINSTANCE),
+            NULL
+        );             // Additional creation data
+
+        hDecodeEdit = CreateWindowEx(
+            WS_EX_CLIENTEDGE,  // Style: adding a border effect
+            L"EDIT",            // Class name for the edit control
+            L"type bruh here",                // Initial text in the edit control
             WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL, // Styles (visible, child, etc.)
             10, 10,            // Position (x, y)
             200, 25,           // Size (width, height)
@@ -410,18 +427,56 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
         int windowHeight = clientRect.bottom - clientRect.top;
 
         // Box dimensions (vertically centered, left-aligned)
-        int boxWidth = static_cast<int>(windowWidth * 0.54);
-        int boxHeight = static_cast<int>(windowHeight * 0.90);
-        int boxX = 0; // Left-aligned
-        int boxY = (windowHeight - boxHeight) / 2;
+        int slider_boxWidth = static_cast<int>(windowWidth * 0.5);
+        int slider_boxHeight = static_cast<int>(windowHeight * 0.90);
+        int slider_boxX = 0; // Left-aligned
+        int slider_boxY = (windowHeight - slider_boxHeight) / 2;
 
         // Update slider position and size
         int sliderWidth = 25; // Fixed slider width
-        int sliderHeight = boxHeight;
-        int sliderX = boxWidth; // Right of the box
-        int sliderY = boxY;
+        int sliderHeight = slider_boxHeight;
+        int sliderX = slider_boxWidth + ((windowWidth - slider_boxWidth) / 16); // Right of the box
+        int sliderY = slider_boxY;
+
+        // Box dimensions (vertically centered, left-aligned)
+        int encode_boxWidth = static_cast<int>(windowWidth * 0.5);
+        int encode_boxHeight = static_cast<int>(windowHeight * 0.90);
+        int encode_boxX = 0; // Left-aligned
+        int encode_boxY = (windowHeight - slider_boxHeight) / 2;
+
+
+
+        // Update slider position and size
+        int editWidth = (windowWidth - (encode_boxWidth + ((windowWidth - slider_boxWidth) / 16))) - 150;
+        int editHeight = 30;
+        int editX = encode_boxWidth + 25 + ((windowWidth - slider_boxWidth) / 16) + 8; // Right of the box
+        int editY = encode_boxY;
+
+        // Update slider position and size
+        int editDecodeWidth = (windowWidth - (encode_boxWidth + ((windowWidth - slider_boxWidth) / 16))) - 150;
+        int editDecodeHeight = 30;
+        int editDecodeX = encode_boxWidth + 25 + ((windowWidth - slider_boxWidth) / 16) + 8; // Right of the box
+        int editDecodeY = encode_boxY + 38;
+
+        // Update slider position and size
+        int encodeWidth = 100;
+        int encodeHeight = 30;
+        int encodeX = (encode_boxWidth + ((windowWidth - slider_boxWidth) / 16) + editWidth) + 41; // Right of the box
+        int encodeY = encode_boxY;
+
+        // Update slider position and size
+        int decodeWidth = 100;
+        int decodeHeight = 30;
+        int decodeX = (encode_boxWidth + ((windowWidth - slider_boxWidth) / 16) + editWidth) + 41; // Right of the box
+        int decodeY = encode_boxY + 38;
 
         SetWindowPos(hSlider, NULL, sliderX, sliderY, sliderWidth, sliderHeight, SWP_NOZORDER);
+
+        SetWindowPos(hEncodeEdit, NULL, editX, editY, editWidth, editHeight, SWP_NOZORDER);
+        SetWindowPos(hDecodeEdit, NULL, editDecodeX, editDecodeY, editDecodeWidth, editDecodeHeight, SWP_NOZORDER);
+
+        SetWindowPos(hEncode, NULL, encodeX, encodeY, encodeWidth, encodeHeight, SWP_NOZORDER);
+        SetWindowPos(hDecode, NULL, decodeX, decodeY, decodeWidth, decodeHeight, SWP_NOZORDER);
         InvalidateRect(hWnd, NULL, TRUE); // Trigger redraw
         return 0;
     }
