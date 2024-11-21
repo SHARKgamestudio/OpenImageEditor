@@ -41,6 +41,10 @@ const int defaultHeight = 540;
 WCHAR szTitle[MAX_LOADSTRING];
 WCHAR szWindowClass[MAX_LOADSTRING];
 
+#pragma comment(linker,"\"/manifestdependency:type='win32' \
+name='Microsoft.Windows.Common-Controls' version='6.0.0.0' \
+processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
+
 // Function Prototypes
 ATOM RegisterAppClass(HINSTANCE hInstance);
 BOOL InitializeApp(HINSTANCE hInstance, int nCmdShow);
@@ -420,6 +424,12 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
             NULL                   // Pointer to additional data
         );
 
+        NONCLIENTMETRICS ncm;
+        ncm.cbSize = sizeof(NONCLIENTMETRICS);
+        ::SystemParametersInfo(SPI_GETNONCLIENTMETRICS, sizeof(NONCLIENTMETRICS), &ncm, 0);
+        HFONT hFont = ::CreateFontIndirect(&ncm.lfMessageFont);
+        ::SendMessage(hEncodeButton, WM_SETFONT, (WPARAM)hFont, MAKELPARAM(TRUE, 0));
+
         hDecodeButton = CreateWindow(
             L"BUTTON",              // Predefined class for buttons
             L"Decrypt",            // Button text
@@ -430,6 +440,12 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
             (HINSTANCE)GetWindowLongPtr(hWnd, GWLP_HINSTANCE),
             NULL                   // Pointer to additional data
         );
+
+        NONCLIENTMETRICS ncm2;
+        ncm2.cbSize = sizeof(NONCLIENTMETRICS);
+        ::SystemParametersInfo(SPI_GETNONCLIENTMETRICS, sizeof(NONCLIENTMETRICS), &ncm2, 0);
+        HFONT hFont2 = ::CreateFontIndirect(&ncm2.lfMessageFont);
+        ::SendMessage(hDecodeButton, WM_SETFONT, (WPARAM)hFont, MAKELPARAM(TRUE, 0));
 
         hEncodeEdit = CreateWindowEx(
             WS_EX_CLIENTEDGE,  // Style: adding a border effect
@@ -444,6 +460,12 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
             NULL
         );             // Additional creation data
 
+        NONCLIENTMETRICS ncm3;
+        ncm3.cbSize = sizeof(NONCLIENTMETRICS);
+        ::SystemParametersInfo(SPI_GETNONCLIENTMETRICS, sizeof(NONCLIENTMETRICS), &ncm3, 0);
+        HFONT hFont3 = ::CreateFontIndirect(&ncm3.lfMessageFont);
+        ::SendMessage(hEncodeEdit, WM_SETFONT, (WPARAM)hFont3, MAKELPARAM(TRUE, 0));
+
         hDecodeEdit = CreateWindowEx(
             WS_EX_CLIENTEDGE,  // Style: adding a border effect
             L"EDIT",            // Class name for the edit control
@@ -457,6 +479,12 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
             NULL
         );             // Additional creation data
 
+        NONCLIENTMETRICS ncm4;
+        ncm4.cbSize = sizeof(NONCLIENTMETRICS);
+        ::SystemParametersInfo(SPI_GETNONCLIENTMETRICS, sizeof(NONCLIENTMETRICS), &ncm4, 0);
+        HFONT hFont4 = ::CreateFontIndirect(&ncm4.lfMessageFont);
+        ::SendMessage(hDecodeEdit, WM_SETFONT, (WPARAM)hFont4, MAKELPARAM(TRUE, 0));
+
         EnableWindow(hEncodeEdit, FALSE);
         EnableWindow(hDecodeEdit, FALSE);
         EnableWindow(hEncodeButton, FALSE);
@@ -466,6 +494,7 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
         return 0;
     }
     case WM_SIZE: {
+
         // Get window dimensions
         RECT clientRect;
         GetClientRect(hWnd, &clientRect);
@@ -536,8 +565,16 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
         }
         return 0;
     }
+    case WM_GETMINMAXINFO:
+    {
+        MINMAXINFO* mmi = (MINMAXINFO*)lParam;
+        mmi->ptMinTrackSize.x = 680;
+        mmi->ptMinTrackSize.y = 380;
+        //mmi->ptMaxTrackSize.x = 640;
+        //mmi->ptMaxTrackSize.y = 480;
+        return 0;
+    }
     case WM_PAINT: {
-
         PAINTSTRUCT ps;
         HDC hdc = BeginPaint(hWnd, &ps);
 
