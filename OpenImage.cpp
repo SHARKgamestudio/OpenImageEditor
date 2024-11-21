@@ -13,37 +13,34 @@
 
 
 
-#define MAX_LOADSTRING 100
+#define MAX_LOADSTRING 64
 
-#pragma comment (lib, "Gdiplus.lib")
+#define DEFAULT_WIDTH  960
+#define DEFAULT_HEIGHT 540
+
+#pragma comment(lib, "Gdiplus.lib")
 #pragma comment(lib, "Comctl32.lib")
+#pragma comment(linker,"\"/manifestdependency:type='win32' \
+name='Microsoft.Windows.Common-Controls' version='6.0.0.0' \
+processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
 
 using namespace Gdiplus;
 using namespace std;
 
-wstring current_path;
 
 // Global Variables
 HINSTANCE hInst;
 
 HWND hSlider;
+HWND hEncodeButton, hEncodeEdit, hDecodeButton, hDecodeEdit;
 
-HWND hEncodeButton;
-HWND hEncodeEdit;
-
-HWND hDecodeButton;
-HWND hDecodeEdit;
-
+wstring current_path;
 float zoomFactor = 1.0f;
-const int defaultWidth = 960;
-const int defaultHeight = 540;
 
 WCHAR szTitle[MAX_LOADSTRING];
 WCHAR szWindowClass[MAX_LOADSTRING];
 
-#pragma comment(linker,"\"/manifestdependency:type='win32' \
-name='Microsoft.Windows.Common-Controls' version='6.0.0.0' \
-processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
+FileExplorer* fileExplorer;
 
 // Function Prototypes
 ATOM RegisterAppClass(HINSTANCE hInstance);
@@ -78,57 +75,6 @@ void DrawImageInBoxWithZoom(HDC hdc, int boxX, int boxY, int boxWidth, int boxHe
 
     // Draw the image with scaling
     graphics.DrawImage(&image, Rect(offsetX, offsetY, scaledWidth, scaledHeight));
-}
-
-bool EncodeMessageInImage(const std::wstring& imagePath, const std::string& message, Bitmap*& outputImage) {
-    // Load the image
-    Bitmap* image = new Bitmap(imagePath.c_str());
-    if (image->GetLastStatus() != Ok) {
-        std::wcerr << L"Failed to load image.\n";
-        delete image;
-        return false;
-    }
-
-    // Prepare the message to encode
-    std::vector<uint8_t> data(message.begin(), message.end());
-    data.push_back('\0'); // Null-terminate the message
-
-    UINT width = image->GetWidth();
-    UINT height = image->GetHeight();
-    size_t dataIdx = 0;
-    size_t bitCount = 0;
-
-    // Encode message into the blue channel
-    for (UINT y = 0; y < height; ++y) {
-        for (UINT x = 0; x < width; ++x) {
-            if (dataIdx < data.size()) {
-                Color pixel;
-                image->GetPixel(x, y, &pixel);
-
-                // Get the current bit from the message
-                uint8_t bit = (data[dataIdx] >> (7 - bitCount)) & 1;
-
-                // Modify the least significant bit of the blue channel
-                BYTE newBlue = (pixel.GetBlue() & 0xFE) | bit;
-                Color newPixel(pixel.GetA(), pixel.GetR(), pixel.GetG(), newBlue);
-                image->SetPixel(x, y, newPixel);
-
-                // Move to the next bit of the message
-                bitCount++;
-                if (bitCount == 8) {
-                    bitCount = 0;
-                    dataIdx++;
-                }
-            }
-            else {
-                // If all message data is encoded, break the loop
-                break;
-            }
-        }
-    }
-
-    outputImage = image;
-    return true;
 }
 
 int GetEncoderClsid(const WCHAR* format, CLSID& clsid) {
@@ -185,68 +131,6 @@ bool SaveImage(Bitmap* image, const std::wstring& outputPath) {
     return true;
 }
 
-wstring stringToWString(const std::string& str) {
-    std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
-    return converter.from_bytes(str);
-}
-
-string wcharToString(const wchar_t* wcharBuffer) {
-    // Use a wstring_convert to convert the wchar_t buffer to a UTF-8 string
-    std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
-    std::string utf8String = converter.to_bytes(wcharBuffer);
-    return utf8String;
-}
-
-wstring DecodeMessageFromImage(const std::wstring& imagePath) {
-    // Load the image
-    Bitmap image(imagePath.c_str());
-    if (image.GetLastStatus() != Ok) {
-        std::wcerr << L"Failed to load image.\n";
-        return L"";
-    }
-
-    // Prepare to read the LSBs
-    UINT width = image.GetWidth();
-    UINT height = image.GetHeight();
-
-    std::vector<uint8_t> messageData;
-    uint8_t currentByte = 0;
-    size_t bitCount = 0;
-
-    // Read each pixel and extract the LSB from the blue channel
-    for (UINT y = 0; y < height; ++y) {
-        for (UINT x = 0; x < width; ++x) {
-            Color pixel;
-            image.GetPixel(x, y, &pixel);
-
-            // Extract the least significant bit of the blue channel
-            uint8_t lsb = pixel.GetBlue() & 0x01;
-
-            // Add the bit to the current byte
-            currentByte |= (lsb << (7 - bitCount));
-            bitCount++;
-
-            // Once we have 8 bits (1 byte), store it in the messageData vector
-            if (bitCount == 8) {
-                messageData.push_back(currentByte);
-                currentByte = 0;
-                bitCount = 0;
-            }
-        }
-    }
-
-    // Convert the message data into a string
-    std::string decodedMessage(messageData.begin(), messageData.end());
-
-    // Find and remove the null-terminator (if any)
-    size_t nullPos = decodedMessage.find('\0');
-    if (nullPos != std::string::npos) {
-        decodedMessage = decodedMessage.substr(0, nullPos);
-    }
-
-    return stringToWString(decodedMessage);
-}
-
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE, _In_ LPWSTR, _In_ int nCmdShow) {
     GdiplusStartupInput gdiplusStartupInput;
     ULONG_PTR gdiplusToken;
@@ -290,7 +174,7 @@ BOOL InitializeApp(HINSTANCE hInstance, int nCmdShow) {
     hInst = hInstance;
 
     HWND hWnd = CreateWindowW(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW,
-        0, 0, defaultWidth, defaultHeight, nullptr, nullptr, hInstance, nullptr);
+        0, 0, DEFAULT_WIDTH, DEFAULT_HEIGHT, nullptr, nullptr, hInstance, nullptr);
 
     if (!hWnd) return FALSE;
 
@@ -313,84 +197,39 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
             return 0;
         }
         case IDM_FILES_OPEN: {
-            OPENFILENAME ofn = { sizeof(OPENFILENAME) };
-            wstring path(MAX_PATH, '\0');
+			fileExplorer = new FileExplorer(hWnd, L"PNG Files\0*.PNG\0JPEG Files\0*.JPG\0");
+            if (fileExplorer->OpenFile()) {
+				current_path = fileExplorer->GetPath();
 
-            ofn.hwndOwner = hWnd;
-            ofn.lpstrFile = &path[0];
-            ofn.nMaxFile = MAX_PATH;
-			ofn.lpstrFilter = TEXT("PNG Files\0*.PNG\0JPEG Files\0*.JPG\0");
-            ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST;
-
-            if (GetOpenFileName(&ofn)) {
-                path.resize(wcslen(path.c_str()));
-                current_path = path;
                 RedrawWindow(hWnd, nullptr, nullptr, RDW_INVALIDATE);
                 InvalidateRect(hWnd, NULL, TRUE);
+
+                EnableWindow(hEncodeEdit, TRUE); EnableWindow(hEncodeButton, TRUE);
+                EnableWindow(hSlider, TRUE); EnableWindow(hDecodeButton, TRUE);
+
+                SetWindowText(hEncodeEdit, L"type something to encrypt.");
+                SetWindowText(hDecodeEdit, L"");
             }
-
-            EnableWindow(hEncodeEdit, TRUE);
-
-            EnableWindow(hEncodeButton, TRUE);
-            EnableWindow(hDecodeButton, TRUE);
-
-            EnableWindow(hSlider, TRUE);
-
-            SetWindowText(hEncodeEdit, L"type something to encrypt.");
-            SetWindowText(hDecodeEdit, L"");
 
             return 0;
         }
         case ID_BUTTON: {
-            wchar_t buffer[256]; // Allocate a buffer to store the text
-            GetWindowText(hEncodeEdit, buffer, sizeof(buffer)); // Get the text from the Edit control
+            wchar_t buffer[256];
+            GetWindowText(hEncodeEdit, buffer, sizeof(buffer));
 
-
-
-
-
-            // Structure to hold the file dialog information
-            OPENFILENAME ofn;
-            WCHAR szFile[MAX_PATH] = { 0 };
-
-            // Initialize the OPENFILENAME structure
-            ZeroMemory(&ofn, sizeof(ofn));
-            ofn.lStructSize = sizeof(ofn);
-            ofn.hwndOwner = NULL; // Handle to the owner window
-            ofn.lpstrFile = szFile;
-            ofn.nMaxFile = sizeof(szFile);
-            ofn.lpstrFilter = L"PNG Files\0*.png\0All Files\0*.*\0";
-            ofn.nFilterIndex = 1;
-            ofn.lpstrFileTitle = NULL;
-            ofn.nMaxFileTitle = 0;
-            ofn.lpstrInitialDir = NULL;
-            ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST | OFN_OVERWRITEPROMPT;
-
-            wstring abdel;
-            if (GetSaveFileName(&ofn) == TRUE) {
-                abdel = ofn.lpstrFile;
-                if (wcharToString(ofn.lpstrFile).find(".png")) {
-					abdel += L".png";
-				}
-                MessageBox(hWnd, abdel.c_str(), L"Notif Encrypt", MB_OK);
-            }
-
-            Bitmap* encodedImage = nullptr;
-            if (EncodeMessageInImage(current_path, wcharToString(buffer), encodedImage)) {
-                if (SaveImage(encodedImage, abdel)) {
-                    MessageBox(hWnd, L"Saved succesfuly !", L"Notif Encrypt", MB_OK);
+            fileExplorer = new FileExplorer(hWnd, L"PNG Files\0*.png\0All Files\0*.*\0");
+			if (fileExplorer->SaveFile()) {
+                Bitmap* encodedImage = nullptr;
+                if (EncodeMessage(current_path, buffer, encodedImage)) {
+                    SaveImage(encodedImage, fileExplorer->GetPath());
+                    delete encodedImage;
                 }
-                delete encodedImage;
-            }
+			}
 
-            return 0;
-        }
-        case ID_EDIT: {
-            // SOMETHING WHILE I ENTER STUFF IN THE EDIT BOX
             return 0;
         }
         case ID_WBUTTON2: {
-            wstring message = DecodeMessageFromImage(current_path).c_str();
+            wstring message = DecodeMessage(current_path).c_str();
 			SetWindowText(hDecodeEdit, message.c_str());
             return 0;
         }
@@ -494,56 +333,41 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
         return 0;
     }
     case WM_SIZE: {
-
         // Get window dimensions
         RECT clientRect;
         GetClientRect(hWnd, &clientRect);
         int windowWidth = clientRect.right - clientRect.left;
         int windowHeight = clientRect.bottom - clientRect.top;
 
-        // Box dimensions (vertically centered, left-aligned)
-        int slider_boxWidth = static_cast<int>(windowWidth * 0.5);
-        int slider_boxHeight = static_cast<int>(windowHeight * 0.90);
-        int slider_boxX = 0; // Left-aligned
-        int slider_boxY = (windowHeight - slider_boxHeight) / 2;
+        int boxWidth = static_cast<int>(windowWidth * 0.5);
+        int boxHeight = static_cast<int>(windowHeight * 0.90);
+        int boxX = 0;
+        int boxY = (windowHeight - boxHeight) / 2;
 
-        // Update slider position and size
-        int sliderWidth = 25; // Fixed slider width
-        int sliderHeight = slider_boxHeight;
-        int sliderX = slider_boxWidth + ((windowWidth - slider_boxWidth) / 16); // Right of the box
-        int sliderY = slider_boxY;
+        int sliderWidth = 25;
+        int sliderHeight = boxHeight;
+        int sliderX = boxWidth + ((windowWidth - boxWidth) / 16);
+        int sliderY = boxY;
 
-        // Box dimensions (vertically centered, left-aligned)
-        int encode_boxWidth = static_cast<int>(windowWidth * 0.5);
-        int encode_boxHeight = static_cast<int>(windowHeight * 0.90);
-        int encode_boxX = 0; // Left-aligned
-        int encode_boxY = (windowHeight - slider_boxHeight) / 2;
-
-
-
-        // Update slider position and size
-        int editWidth = (windowWidth - (encode_boxWidth + ((windowWidth - slider_boxWidth) / 16))) - 150;
+        int editWidth = (windowWidth - (boxWidth + ((windowWidth - boxWidth) / 16))) - 150;
         int editHeight = 30;
-        int editX = encode_boxWidth + 25 + ((windowWidth - slider_boxWidth) / 16) + 8; // Right of the box
-        int editY = encode_boxY;
+        int editX = boxWidth + 25 + ((windowWidth - boxWidth) / 16) + 8;
+        int editY = boxY;
 
-        // Update slider position and size
-        int editDecodeWidth = (windowWidth - (encode_boxWidth + ((windowWidth - slider_boxWidth) / 16))) - 150;
+        int editDecodeWidth = (windowWidth - (boxWidth + ((windowWidth - boxWidth) / 16))) - 150;
         int editDecodeHeight = 30;
-        int editDecodeX = encode_boxWidth + 25 + ((windowWidth - slider_boxWidth) / 16) + 8; // Right of the box
-        int editDecodeY = encode_boxY + 38;
+        int editDecodeX = boxWidth + 25 + ((windowWidth - boxWidth) / 16) + 8;
+        int editDecodeY = boxY + 38;
 
-        // Update slider position and size
         int encodeWidth = 100;
         int encodeHeight = 30;
-        int encodeX = (encode_boxWidth + ((windowWidth - slider_boxWidth) / 16) + editWidth) + 41; // Right of the box
-        int encodeY = encode_boxY;
+        int encodeX = (boxWidth + ((windowWidth - boxWidth) / 16) + editWidth) + 41;
+        int encodeY = boxY;
 
-        // Update slider position and size
         int decodeWidth = 100;
         int decodeHeight = 30;
-        int decodeX = (encode_boxWidth + ((windowWidth - slider_boxWidth) / 16) + editWidth) + 41; // Right of the box
-        int decodeY = encode_boxY + 38;
+        int decodeX = (boxWidth + ((windowWidth - boxWidth) / 16) + editWidth) + 41;
+        int decodeY = boxY + 38;
 
         SetWindowPos(hSlider, NULL, sliderX, sliderY, sliderWidth, sliderHeight, SWP_NOZORDER);
 
@@ -552,16 +376,14 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
 
         SetWindowPos(hEncodeButton, NULL, encodeX, encodeY, encodeWidth, encodeHeight, SWP_NOZORDER);
         SetWindowPos(hDecodeButton, NULL, decodeX, decodeY, decodeWidth, decodeHeight, SWP_NOZORDER);
-        InvalidateRect(hWnd, NULL, TRUE); // Trigger redraw
+        InvalidateRect(hWnd, NULL, TRUE);
         return 0;
     }
-    case WM_HSCROLL: // Handle slider changes
     case WM_VSCROLL: {
         if ((HWND)lParam == hSlider) {
-            // Get the slider position
             int sliderPos = SendMessage(hSlider, TBM_GETPOS, 0, 0);
-            zoomFactor = 1.0f + (sliderPos - 50) / 50.0f; // Map slider to zoom range [0.5x, 2.0x]
-            InvalidateRect(hWnd, NULL, TRUE); // Redraw the window
+            zoomFactor = 1.0f + (sliderPos - 50) / 50.0f;
+            InvalidateRect(hWnd, NULL, TRUE);
         }
         return 0;
     }
@@ -570,8 +392,6 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
         MINMAXINFO* mmi = (MINMAXINFO*)lParam;
         mmi->ptMinTrackSize.x = 680;
         mmi->ptMinTrackSize.y = 380;
-        //mmi->ptMaxTrackSize.x = 640;
-        //mmi->ptMaxTrackSize.y = 480;
         return 0;
     }
     case WM_PAINT: {
@@ -602,7 +422,6 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
     default:
         return DefWindowProc(hWnd, message, wParam, lParam);
     }
-    return DefWindowProc(hWnd, message, wParam, lParam);
 }
 
 INT_PTR CALLBACK AboutDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam) {

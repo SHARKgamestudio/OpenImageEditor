@@ -13,24 +13,45 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="Fichiers d%27en-tête\Resources">
+      <UniqueIdentifier>{a8e9f050-3f5f-4fdd-afcc-e3c2f999c0fb}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Fichiers d%27en-tête\Utils">
+      <UniqueIdentifier>{e26c9293-0f82-45fe-8211-de50e51825d8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Fichiers sources\Utils">
+      <UniqueIdentifier>{def5fee4-f0f3-447f-856d-b0014dbdc550}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="framework.h">
-      <Filter>Fichiers d%27en-tête</Filter>
+    <ClInclude Include="Resource.h">
+      <Filter>Fichiers d%27en-tête\Resources</Filter>
     </ClInclude>
     <ClInclude Include="targetver.h">
-      <Filter>Fichiers d%27en-tête</Filter>
+      <Filter>Fichiers d%27en-tête\Resources</Filter>
     </ClInclude>
-    <ClInclude Include="Resource.h">
-      <Filter>Fichiers d%27en-tête</Filter>
+    <ClInclude Include="framework.h">
+      <Filter>Fichiers d%27en-tête\Resources</Filter>
     </ClInclude>
     <ClInclude Include="OpenImage.h">
       <Filter>Fichiers d%27en-tête</Filter>
+    </ClInclude>
+    <ClInclude Include="FileExplorer.h">
+      <Filter>Fichiers d%27en-tête\Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="LSB.h">
+      <Filter>Fichiers d%27en-tête\Utils</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="OpenImage.cpp">
       <Filter>Fichiers sources</Filter>
+    </ClCompile>
+    <ClCompile Include="FileExplorer.cpp">
+      <Filter>Fichiers sources\Utils</Filter>
+    </ClCompile>
+    <ClCompile Include="LSB.cpp">
+      <Filter>Fichiers sources\Utils</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
